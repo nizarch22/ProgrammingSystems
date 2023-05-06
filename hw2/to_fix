@@ -1,0 +1,4 @@
+- there may only be one repeat command per line 
+- add log file support
+- make commands work as: each line, different thread
+
