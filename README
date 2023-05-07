@@ -1,0 +1,4 @@
+To use make, type into terminal:
+make - compile but not run file.
+make run - an arbitrary test run
+make clean - wipe away all 'make' and 'make run' files.
