@@ -168,7 +168,7 @@ void* threadFunc(void* ptrVoidArgs)
 		//debug
 		for(int i=0;i<numThreads;i++) // debug
 			if(currentThread->threadId==threads[i].threadId)
-				printf("[WORKER:%lu]",i); // debug
+				printf("[WORKER:%d]",i); // debug
 
 		printf("Executing Command:%s - Argument:%d\n",commands[c],args[c]); // debug
 		//sleep
