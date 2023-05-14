@@ -1,8 +1,0 @@
-TIME 1914: START job worker msleep 4000; increment 2; increment 2; increment 3; increment 4 
-TIME 4222: END job worker msleep 4000; increment 2; increment 2; increment 3; increment 4 
-TIME 4608: START job worker increment 1; increment 2; msleep 100;
-TIME 5730: END job worker increment 1; increment 2; msleep 100;
-TIME 1067: START job worker msleep 4000; increment 2; increment 2; increment 3; increment 4 
-TIME 3660: END job worker msleep 4000; increment 2; increment 2; increment 3; increment 4 
-TIME 4036: START job worker increment 1; increment 2; msleep 100;
-TIME 4939: END job worker increment 1; increment 2; msleep 100;

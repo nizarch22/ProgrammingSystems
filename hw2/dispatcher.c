@@ -22,22 +22,9 @@
 #define DISPATCHER_MSLEEP 4
 #define REPEAT 5
 
-/*COMMENTS*/ // change
-
-/* 
- * considerations to let char line[], char commands[MAX_COMMANDS][MAX_COMMAND_LENGTHZ], int args[MAX_COMMANDS]
- * be global variables fail as the command 'repeat' requires recursive function executeCommandLine
- *  */
-
-/*
- * another consideration to make is to index command by integer numbers, rather than to use the slow char commands[] and its functions
- * 
- * */
-
 //structures
 typedef struct Job{
 	int commands[MAX_COMMANDS];
-	//char commands[MAX_COMMANDS][MAX_COMMAND_LENGTHZ];
 	int args[MAX_COMMANDS];
 	int index;
 	int length;
@@ -55,15 +42,12 @@ typedef struct funcArgument{
 	Job* job;
 }funcArgument;
 
-
 // functions
 
 //function to parse and execute the commands in the command line
-//void loadAndExecuteCommandLine();
-//void parseCommandLine(char line[], char commands[MAX_COMMANDS][MAX_COMMAND_LENGTHZ], int args[MAX_COMMANDS]);
-//void executeCommandLine(char line[]);
 void parseJob(char line[], Job* job);
-void loadJobs();// loads each line to a buffer and passes that to executeCommandLine(line[]) function
+void loadLines();// loads each line to a buffer and stores it 
+void loadJobs();// parses and indexes the commands of every single job
 void executeJobs();
 int getNumLines(); // gets the number of lines 'filePath' (commands file) has.
 
@@ -72,26 +56,33 @@ int getNumLines(); // gets the number of lines 'filePath' (commands file) has.
 
 // intializing and accessing log and counter files
 void initCounterFiles();
-void initLogFiles();
 void incrementToFile(int increment, int counterFileIndex);
+void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex);
+void endThreadLog(FILE* fp, const int workerNumber, const int jobIndex);
 
 // thread related functions
 void* threadFunc(void* ptrVoidArgs);
-int getWorker(); // 'returns' available worker thread
+int getWorker(); // returns available worker thread
 void startThread(int workerNumber,Job* job);
 void waitForThreads();
 
 // global variables
-clock_t currentTime;
-Thread* threads;
-char* filePath;
+
+// constant 
 char commandList[NUM_COMMANDS][MAX_COMMAND_LENGTHZ]={"msleep", "increment", "decrement","repeat","dispatcher_msleep", "dispatcher_wait"};
+
+// typical no-pointer variables, and strings(exception to no-pointer).
+clock_t currentTime;
+char* filePath;
 int numThreads, numCounters, bLog; // num_threads, numb_counter log_enabled
 int numLines = 0;
+
+// arrays of string, structures.
+Thread* threads;
 Job* jobs;
 char** lines;
-// functions' expansions
 
+// functions' expansions
 int getWorker() // 'returns' available worker thread
 {
 	int bAvailable = 0;
@@ -113,12 +104,6 @@ int getWorker() // 'returns' available worker thread
 	return index;
 }
 
-void initLogFiles()
-{
-	
-	
-}
-
 
 void startThread(int workerNumber,Job* job)
 {
@@ -129,7 +114,6 @@ void startThread(int workerNumber,Job* job)
 
 	threads[workerNumber].workerNumber = workerNumber;
 	threads[workerNumber].bWorking =1;
-	// start counting 
 	pthread_create(&threads[workerNumber].threadId,NULL,threadFunc,(void*)ptrArgs);
 }
 
@@ -148,9 +132,10 @@ void waitForThreads()
 }
 
 
-
-FILE startThreadLog(FILE* fp,const int workerNumber, const int jobIndex)
+void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex)
 {
+	if(bLog)
+		return;
 	// constructing the file name
 	char fileName[15] = "thread";
 	char workerNumStr[5];
@@ -173,7 +158,7 @@ FILE startThreadLog(FILE* fp,const int workerNumber, const int jobIndex)
 		exit(-1);
 	}
 	if (bFileExists)
-		fprintf(fp,"\n"); // add new line
+		fprintf(fp,"\n"); // add new line in case the file is already made (and supposedly has been written to).
 	if(fgetc(fp)!='\0')
 	//printf("[Time Log START]- fileName:%s - time:%ldms\n",fileName, currentTime); //debug
 	fprintf(fp,"TIME %lld: START job %s\n",currentTime,lines[jobIndex]);
@@ -183,6 +168,9 @@ FILE startThreadLog(FILE* fp,const int workerNumber, const int jobIndex)
 
 void endThreadLog(FILE* fp, const int workerNumber, const int jobIndex)
 {
+	if(bLog)
+		return;
+	// constructing the file name
 	char fileName[15] = "thread";
 	char workerNumStr[5];
 	
@@ -210,6 +198,7 @@ void* threadFunc(void* ptrVoidArgs)
 	funcArgument* fArgs = (funcArgument*) ptrVoidArgs;
 	Thread* currentThread = fArgs->thread;
 	Job* job = fArgs->job;
+
 	int* commands = job->commands;
 	int* args = job->args;
 
@@ -228,7 +217,11 @@ void* threadFunc(void* ptrVoidArgs)
 		{
 			printf("[WORKER:%d]Executing Command:%s - Argument:%d - Line:%d\n",currentThread->workerNumber,commandList[commands[c]],args[c],job->index); // debug
 		}
-
+		else
+		{
+			printf("[WORKER:REPEAT]Executing Command:%s - Argument:%d - Line:%d\n",commandList[commands[c]],args[c],job->index); // debug
+		}
+		
 
 		if(commands[c] == 0) // msleep
 		{
@@ -238,29 +231,28 @@ void* threadFunc(void* ptrVoidArgs)
 			//printf("done sleeping!\n");
 		}
 
-
 		if(commands[c]==1) // increment
 			incrementToFile(1, args[c]);
 		if(commands[c]==2) // decrement
 			incrementToFile(-1, args[c]);
 
-		if(commands[c]==3) //repeat
+		if(commands[c]==3) // repeat
 		{
-
 			repeatArgs = (funcArgument*)malloc(sizeof(funcArgument)); //possibly unnecessary malloc
 			repeatArgs->thread = NULL; // no thread given to repeat commands
-			Job* tempJob = job; // setting next job
+			repeatArgs->job = (Job*)malloc(sizeof(Job));
+			Job* tempJob = repeatArgs->job; // setting next job
 			
 			//copying the next commands' command strings and arguments in the job
 			int i=c;
-			for(;i<length;i++)
+			for(;i<length-1;i++)
 			{
-				tempJob->commands[i-c] = commands[i];
-				tempJob->args[i-c] = args[i];
+				tempJob->commands[i-c] = commands[i+1];
+				tempJob->args[i-c] = args[i+1];
 			}
 			tempJob->length = i-c;
+			tempJob->index = job->index;
 			                                                                                        
-			repeatArgs->job=tempJob;
 			for (i=0;i<args[c];i++)
 				threadFunc((void*)repeatArgs);
 			break;
@@ -269,32 +261,34 @@ void* threadFunc(void* ptrVoidArgs)
 	}
 
 	// end thread
-	currentTime = clock();
 	if(currentThread!=NULL)
 	{
+		currentTime = clock();
 		currentThread->bWorking =0;
 		free(ptrVoidArgs);
 		if(repeatArgs!=NULL)
+		{
+			free(repeatArgs->job);
 			free(repeatArgs);
+		}
 		endThreadLog(fp,currentThread->workerNumber, job->index);
 	}
 	return NULL;
 }
 
-void loadJobs()// loads each line to a buffer and passes that to executeCommandLine(line[]) function
+void loadLines()// loads each line to a buffer and stores it 
 {
 	// parse command file - line by line
 	char buffer[MAX_LINE]; // line string
 	long long chrCount = 0;
 	FILE* fp = fopen(filePath, "r");
-	
 	if(fp==NULL)
 	{
 		printf("[ERROR] opening file failed!\n");
 		exit(-1);
 	}
 	long long fileLen = getFileLen(fp);
-	int jobCount =0;
+	int jobCount = 0;
 	while(chrCount!=fileLen)
 	{
 		long long bufferCount =0;
@@ -324,9 +318,6 @@ void loadJobs()// loads each line to a buffer and passes that to executeCommandL
 		if(strcmp(buffer,""))
 		{
 			strcpy(lines[jobCount],buffer);
-			jobs[jobCount].index = jobCount;
-			
-			parseJob(buffer, &jobs[jobCount]);
 			jobCount++;
 		}
 		//printf("%s-length: %d, count: %d\n",buffer, bufferCount,chrCount); // debug
@@ -335,6 +326,15 @@ void loadJobs()// loads each line to a buffer and passes that to executeCommandL
 		strcpy(buffer,"");
 	}
 	fclose(fp);
+}
+
+void loadJobs()
+{
+	for(int i=0;i<numLines&&strcmp(lines[i],"");i++)
+	{
+		jobs[i].index = i;
+		parseJob(lines[i], &jobs[i]);
+	}
 }
 
 
@@ -666,9 +666,6 @@ int main(int argc, char* argv[])
 	}
 	
 	initCounterFiles();
-	initLogFiles();
-
-	//loadAndExecuteCommandLine();
 	numLines = getNumLines();
 	
 	// load and parse commands
@@ -678,12 +675,13 @@ int main(int argc, char* argv[])
 	for(int i=0;i<numLines;i++)
 	{
 		lines[i] = (char*)malloc(MAX_LINE);
+		strcpy(lines[i],"");
 	}
 	for(int i=0;i<numLines;i++)
 	{
 		jobs[i].length = 0;
-		//strcpy(jobs[i].commands[0], "");
 	}
+	loadLines();
 	loadJobs();
 
 	//debug
