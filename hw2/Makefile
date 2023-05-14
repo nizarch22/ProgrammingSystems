@@ -3,6 +3,6 @@ hw2: dispatcher.o
 dispatcher.o: dispatcher.c
 	gcc -c dispatcher.c	
 clean:
-	rm *.o hw2 *.txt
-run:
-	./hw2 file 5 5 1
+	rm -v !(*.c|"Makefile"|*.o|"test.txt")
+run: test.txt
+	./hw2 test.txt 5 5 1

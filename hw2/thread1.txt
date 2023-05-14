@@ -1,4 +1,0 @@
-TIME 2996: START job worker decrement 3
-TIME 3339: END job worker decrement 3
-TIME 5915: START job worker repeat 5; increment 1;increment 2; decrement 3;
-TIME 12355: END job worker repeat 5; increment 1;increment 2; decrement 3;
