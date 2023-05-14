@@ -22,12 +22,17 @@
 #define DISPATCHER_MSLEEP 4
 #define REPEAT 5
 
+// DEBUGGING COMMENT
+/*Main debugging happens in: parseJob and threadFunc with: the execution command the thread's workingNumber, etc.*/
+
+
 //structures
 typedef struct Job{
 	int commands[MAX_COMMANDS];
 	int args[MAX_COMMANDS];
 	int index;
 	int length;
+	clock_t startTime;
 }Job;
 // Thread function to indicate when a thread is working.
 typedef struct Thread{
@@ -134,7 +139,7 @@ void waitForThreads()
 
 void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex)
 {
-	if(bLog)
+	if(!bLog)
 		return;
 	// constructing the file name
 	char fileName[15] = "thread";
@@ -168,7 +173,7 @@ void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex)
 
 void endThreadLog(FILE* fp, const int workerNumber, const int jobIndex)
 {
-	if(bLog)
+	if(!bLog)
 		return;
 	// constructing the file name
 	char fileName[15] = "thread";
@@ -203,7 +208,10 @@ void* threadFunc(void* ptrVoidArgs)
 	int* args = job->args;
 
 	if(currentThread!=NULL)
+	{
+		job->startTime = currentTime;
 		startThreadLog(fp,currentThread->workerNumber, job->index);
+	}
 
 	//repeat arguments in case we have a repeat command
 	funcArgument* repeatArgs = NULL;
@@ -213,14 +221,15 @@ void* threadFunc(void* ptrVoidArgs)
 	{
 		// execute commands
 		//
-		if(currentThread!=NULL)
-		{
-			printf("[WORKER:%d]Executing Command:%s - Argument:%d - Line:%d\n",currentThread->workerNumber,commandList[commands[c]],args[c],job->index); // debug
-		}
-		else
-		{
-			printf("[WORKER:REPEAT]Executing Command:%s - Argument:%d - Line:%d\n",commandList[commands[c]],args[c],job->index); // debug
-		}
+		//debug
+		//if(currentThread!=NULL)
+		//{
+		//	printf("[WORKER:%d]Executing Command:%s - Argument:%d - Line:%d\n",currentThread->workerNumber,commandList[commands[c]],args[c],job->index); // debug
+		//}
+		//else
+		//{
+		//	printf("[WORKER:REPEAT]Executing Command:%s - Argument:%d - Line:%d\n",commandList[commands[c]],args[c],job->index); // debug
+		//}
 		
 
 		if(commands[c] == 0) // msleep
@@ -486,12 +495,12 @@ void parseJob(char line[], Job* job)
         		//strcpy(job->commands[c], commandStr);
         		job->args[c] = -1;
         	                                         
-			printf("token:%s(index:%d)-arg:%d\n",commandStr,job->commands[c], -1); // debug
+			//printf("token:%s(index:%d)-arg:%d\n",commandStr,job->commands[c], -1); // debug
         	        c++;
         	        tokenCmd = strtok(NULL, ";");
         		continue;
         	}
-
+		
 		if(temp==NULL&&strcmp(commandStr,"dispatcher_wait")) // if not a dispatcher_wait with no argument, then it's an error
 		{
 			printf("Error! no argument specified in command:%s!\n",commandStr);
@@ -533,7 +542,7 @@ void parseJob(char line[], Job* job)
 		job->args[c] = arg;
 		//strcpy(job->commands[c], commandStr);
 
-		printf("token:%s(index:%d)-arg:%d\n",commandStr,job->commands[c], arg); // debug
+		//printf("token:%s(index:%d)-arg:%d\n",commandStr,job->commands[c], arg); // debug
 		c++;
 		tokenCmd = strtok(NULL, ";");
 	}
@@ -582,7 +591,7 @@ int getNumLines()
 
 void executeJobs()
 {
-	printf("executing jobs!\n");// debug
+	//printf("executing jobs!\n");// debug
 	int workerNumber;
 	//char commands[MAX_COMMANDS][MAX_COMMAND_LENGTHZ];
 	int* commands;
@@ -594,19 +603,9 @@ void executeJobs()
 		args = jobs[i].args;
 		if(jobs[i].length==0)
 			break;
-		//if(!strcmp(commands[0],""))
-		//	break;
-	                                                                                     
-		//if(!strcmp(commands[i],"dispatcher_msleep")) // dispatcher_msleep
-		//{
-		//	printf("[WORKER:%d]Executing Command:%s - Argument:%d\n",0,commands[0],args[0]); // debug
-		//	unsigned int microseconds = args[i]*1000; // milli to micro seconds
-		//	usleep(microseconds);
-		//	continue;
-		//}
 		if(commands[0]==4) // dispatcher_msleep
                 {
-                	printf("[WORKER:%d]Executing Command:dispatcher_msleep - Argument:%d - Line:%d\n",-1,args[0],i); // debug
+                	//printf("[WORKER:%d]Executing Command:dispatcher_msleep - Argument:%d - Line:%d\n",-1,args[0],i); // debug
                 	unsigned int microseconds = args[i]*1000; // milli to micro seconds
                 	usleep(microseconds);
                 	continue;
@@ -614,25 +613,52 @@ void executeJobs()
 
 		if(commands[0]==5) // dispatcher_wait
 		{
-			printf("[WORKER:%d]Executing Command:dispatcher_wait - Argument:%d - Line:%d\n",-1,args[0],i); // debug
+			//printf("[WORKER:%d]Executing Command:dispatcher_wait - Argument:%d - Line:%d\n",-1,args[0],i); // debug
 			waitForThreads();
 			//printf("command after thread waiting:%s",commands[i]); // debug
 			continue;
 		}
 
-
-
-		//if(!strcmp(commands[i],"dispatcher_wait")) // dispatcher_wait
-		//{
-		//	printf("[WORKER:%d]Executing Command:dispatcher_wait - Argument:%d\n",-1,args[0]); // debug
-		//	waitForThreads();
-		//	//printf("command after thread waiting:%s",commands[i]); // debug
-		//	continue;
-		//}
-
 		workerNumber = getWorker(); // find worker
 		startThread(workerNumber,&jobs[i]);
 	}
+}
+
+
+void printStats()
+{
+	clock_t min, max, sum;
+	double avg;
+	min = jobs[0].startTime;
+	max = jobs[0].startTime;
+	sum=0;
+	int i=0;
+	for(;i<numLines&&jobs[i].length!=0;i++)
+	{
+		if(jobs[i].commands[0] >=4)//in case of dispatcher
+			continue;
+
+		clock_t current = jobs[i].startTime;
+		//printf("job: %s\n job time:%lld\n",lines[i],current); // debug
+		sum+=current;
+		if(current < min)
+			min = current;
+		if(current>max)
+			max=current;
+	}
+	avg = (double)sum/(double)i;
+	FILE* fp = fopen("stats.txt","w");
+	if(fp==NULL)
+	{
+		printf("[ERROR] opening file failed!\n");
+		exit(-1);
+	}
+	fprintf(fp, "total running time: %lld milliseconds\n",currentTime);
+	fprintf(fp, "sum of jobs turnaround time: %lld milliseconds\n",sum);
+	fprintf(fp, "min job turnaround time: %lld milliseconds\n",min);
+	fprintf(fp, "average job turnaround time: %f milliseconds\n",avg);
+	fprintf(fp, "max job turnaround time: %lld milliseconds\n",max);
+	fclose(fp);
 }
 
 int main(int argc, char* argv[])
@@ -672,15 +698,13 @@ int main(int argc, char* argv[])
 	jobs = (Job*)malloc(sizeof(Job)*numLines);
 	lines = (char**) malloc(numLines*sizeof(char*));
 
-	for(int i=0;i<numLines;i++)
+	for(int i=0;i<numLines;i++) // initializing global arrays
 	{
-		lines[i] = (char*)malloc(MAX_LINE);
+		jobs[i].length = 0; // job
+		lines[i] = (char*)malloc(MAX_LINE); // lines
 		strcpy(lines[i],"");
 	}
-	for(int i=0;i<numLines;i++)
-	{
-		jobs[i].length = 0;
-	}
+
 	loadLines();
 	loadJobs();
 
@@ -699,13 +723,19 @@ int main(int argc, char* argv[])
 	//}
 
 	executeJobs();
-	waitForThreads();
+	waitForThreads(); // remove? should be included in command file?
+	
+	currentTime = clock(); // total time
+
+	// calculate turnaround times:
+	printStats();
+
 	// freeing memory
 	for(int i=0;i<numLines;i++)
 	{
 		free(lines[i]);
 	}
 	free(lines);
-
+	free(jobs);
 	free(threads);
 }

@@ -1,8 +1,0 @@
-- there may only be one repeat command per line 
-- add log file support
-- make commands work as: each line, different thread
-
-
-- extract lines first, then parseJobs.
-- include in job struct the line index to determine line for thread logging
-- index job commands (instead of strcmp)
