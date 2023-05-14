@@ -640,6 +640,7 @@ void printStats()
 
 		clock_t current = jobs[i].startTime;
 		//printf("job: %s\n job time:%lld\n",lines[i],current); // debug
+		//printf("current stat: %lld\n",current); // debug
 		sum+=current;
 		if(current < min)
 			min = current;
