@@ -1,4 +1,7 @@
+make is used to automate the compilation (and cleaning) process of the code. 
+Before using make, navigate to any of the hw folders. In each folder there is a Makefile, which is necessary to use the command 'make'.
+
 To use make, type into terminal:
-make - compile but not run file.
-make run - an arbitrary test run
-make clean - wipe away all 'make' and 'make run' files.
+make // compile but not run file.
+make run // an arbitrary test run
+make clean // wipe away all 'make' and 'make run' files.
