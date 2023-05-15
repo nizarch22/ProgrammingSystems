@@ -28,21 +28,21 @@
 
 //structures
 typedef struct Job{
-	int commands[MAX_COMMANDS];
-	int args[MAX_COMMANDS];
-	int index;
-	int length;
-	clock_t startTime;
+	int commands[MAX_COMMANDS];//command indices
+	int args[MAX_COMMANDS];//command arguments
+	int index;//job line index
+	int length;//length of commands in job
+	clock_t startTime;//starTime of job for turnaround calculation
 }Job;
-// Thread function to indicate when a thread is working.
-typedef struct Thread{
+
+typedef struct Thread{ // this thread structure is used to keep track of the progress of the thread, and identify it easily.
 	pthread_t threadId;
 	int bWorking;
 	int workerNumber;
 }Thread;
 
 // structure for entering necessary arguments into the threads' function.
-typedef struct funcArgument{
+typedef struct funcArgument{ // Used to pass onto the thread function to end the thread and process the job throughout.
 	Thread* thread;
 	Job* job;
 }funcArgument;
@@ -50,45 +50,44 @@ typedef struct funcArgument{
 // functions
 
 //function to parse and execute the commands in the command line
-void parseJob(char line[], Job* job);
-void loadLines();// loads each line to a buffer and stores it 
-void loadJobs();// parses and indexes the commands of every single job
-void executeJobs();
-int getNumLines(); // gets the number of lines 'filePath' (commands file) has.
-
+void parseJob(char line[], Job* job); // Parses the line by separating the commands and arguments and indexing them and storing them in a Job.
+void loadLines();// loads each line to a buffer and stores it in 'lines'
+void loadJobs();// parses every job using parseJob.
+void executeJobs();// Executes jobs using threading(threadFunc). It also handles dispatcher calls on the main thread.
+int getNumLines(); // gets the number of lines the command file has.
 // function helpers
-
-
+void printStats(); // creates stats.txt file for inserting calculations made inside it regarding the runtime of the program.
 // intializing and accessing log and counter files
-void initCounterFiles();
-void incrementToFile(int increment, int counterFileIndex);
-void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex);
-void endThreadLog(FILE* fp, const int workerNumber, const int jobIndex);
+void initCounterFiles(); // creates the counter files.
+void incrementToFile(int increment, int counterFileIndex); // increments a counter file
+void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex); // the thread creates a log file for itself, and writes a start log line into it.
+void endThreadLog(FILE* fp, const int workerNumber, const int jobIndex); // the thread creates a log file for itself, and writes an end log line into it.
 
 // thread related functions
-void* threadFunc(void* ptrVoidArgs);
-int getWorker(); // returns available worker thread
-void startThread(int workerNumber,Job* job);
-void waitForThreads();
+void* threadFunc(void* ptrVoidArgs); // used to execute commands on general threads.
+int getWorker(); // returns available worker thread identification number
+void startThread(int workerNumber,Job* job); // sets up the argument to be inserted into the thread function for this specific job.
+void waitForThreads(); // dispatcher waits until all threads are done.
 
 // global variables
 
 // constant 
-char commandList[NUM_COMMANDS][MAX_COMMAND_LENGTHZ]={"msleep", "increment", "decrement","repeat","dispatcher_msleep", "dispatcher_wait"};
+char commandList[NUM_COMMANDS][MAX_COMMAND_LENGTHZ]={"msleep", "increment", "decrement","repeat","dispatcher_msleep", "dispatcher_wait"}; // used to index all the commands in parseJob
 
-// typical no-pointer variables, and strings(exception to no-pointer).
-clock_t currentTime;
-char* filePath;
+// typical no-pointer variables, and strings(exception to no-pointer rule).
+clock_t currentTime; // used to give time spanned since running hw2
+char* filePath; // stores the path of the command file 
+int numLines = 0; // keeps track of the number of lines in the command file.
 int numThreads, numCounters, bLog; // num_threads, numb_counter log_enabled
-int numLines = 0;
 
 // arrays of string, structures.
+// jobs and threads are made global to easily access them throughout all functions. lines is used for logging and debugging.
 Thread* threads;
 Job* jobs;
-char** lines;
+char** lines; 
 
 // functions' expansions
-int getWorker() // 'returns' available worker thread
+int getWorker() // returns available worker thread
 {
 	int bAvailable = 0;
 	int index = -1;
@@ -110,7 +109,7 @@ int getWorker() // 'returns' available worker thread
 }
 
 
-void startThread(int workerNumber,Job* job)
+void startThread(int workerNumber,Job* job)// sets up the argument to be inserted into the thread function for this specific job.
 {
 	funcArgument* ptrArgs = (funcArgument*) malloc(sizeof(funcArgument));
 	
@@ -122,7 +121,7 @@ void startThread(int workerNumber,Job* job)
 	pthread_create(&threads[workerNumber].threadId,NULL,threadFunc,(void*)ptrArgs);
 }
 
-void waitForThreads()
+void waitForThreads()// dispatcher waits until all threads are done.
 {
 	//printf("Waiting for threads!\n"); // debug
 	for(int i=0;i<numThreads;i++)
@@ -137,7 +136,7 @@ void waitForThreads()
 }
 
 
-void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex)
+void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex) // the thread creates a log file for itself, and writes a start log line into it.
 {
 	if(!bLog)
 		return;
@@ -171,7 +170,7 @@ void startThreadLog(FILE* fp,const int workerNumber, const int jobIndex)
 
 }
 
-void endThreadLog(FILE* fp, const int workerNumber, const int jobIndex)
+void endThreadLog(FILE* fp, const int workerNumber, const int jobIndex)// the thread creates a log file for itself, and writes an end log line into it.
 {
 	if(!bLog)
 		return;
@@ -194,7 +193,7 @@ void endThreadLog(FILE* fp, const int workerNumber, const int jobIndex)
 	fclose(fp);
 }
 
-void* threadFunc(void* ptrVoidArgs)
+void* threadFunc(void* ptrVoidArgs)// used to execute commands on general threads.
 {
 	currentTime = clock();
 	FILE* fp; 
@@ -273,7 +272,6 @@ void* threadFunc(void* ptrVoidArgs)
 	if(currentThread!=NULL)
 	{
 		currentTime = clock();
-		currentThread->bWorking =0;
 		free(ptrVoidArgs);
 		if(repeatArgs!=NULL)
 		{
@@ -281,11 +279,12 @@ void* threadFunc(void* ptrVoidArgs)
 			free(repeatArgs);
 		}
 		endThreadLog(fp,currentThread->workerNumber, job->index);
+		currentThread->bWorking =0;
 	}
 	return NULL;
 }
 
-void loadLines()// loads each line to a buffer and stores it 
+void loadLines()// loads each line to a buffer and stores it in 'lines'
 {
 	// parse command file - line by line
 	char buffer[MAX_LINE]; // line string
@@ -337,7 +336,7 @@ void loadLines()// loads each line to a buffer and stores it
 	fclose(fp);
 }
 
-void loadJobs()
+void loadJobs()// parses every job using parseJob.
 {
 	for(int i=0;i<numLines&&strcmp(lines[i],"");i++)
 	{
@@ -347,7 +346,7 @@ void loadJobs()
 }
 
 
-void initCounterFiles()
+void initCounterFiles()// creates the counter files.
 {
 	char strFileName[12];
 	char strPre[] = "count";                                                                                            	
@@ -379,7 +378,7 @@ void initCounterFiles()
 	}
 }
 
-void incrementToFile(int increment, int counterFileIndex)
+void incrementToFile(int increment, int counterFileIndex)// increments a counter file
 {
 	char strFileNum[20];
 	                                             
@@ -413,7 +412,7 @@ void incrementToFile(int increment, int counterFileIndex)
 	fclose(fp);
 }
 
-void parseJob(char line[], Job* job) 
+void parseJob(char line[], Job* job) // Parses the line by separating the commands and arguments and indexing them and storing them in a Job.
 {
 	char tempLine[MAX_LINE];
 	char* temp; // pointer for tempLine
@@ -552,7 +551,7 @@ void parseJob(char line[], Job* job)
 	//printf("done parsing line!\n"); // debug
 }
 
-int getNumLines()
+int getNumLines()// gets the number of lines the command file has.
 {
 	int c = 0;
 	FILE* fp = fopen(filePath, "r");
@@ -589,7 +588,7 @@ int getNumLines()
 }
 
 
-void executeJobs()
+void executeJobs()// Executes jobs using threading(threadFunc). It also handles dispatcher calls on the main thread.
 {
 	//printf("executing jobs!\n");// debug
 	int workerNumber;
@@ -625,7 +624,7 @@ void executeJobs()
 }
 
 
-void printStats()
+void printStats()// creates stats.txt file for inserting calculations made inside it regarding the runtime of the program.
 {
 	clock_t min, max, sum;
 	double avg;
