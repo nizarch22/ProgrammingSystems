@@ -105,6 +105,7 @@ extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_getNumProc(void);
 extern int sys_getMaxPid(void);
+extern int sys_getProcInfo(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -130,6 +131,7 @@ static int (*syscalls[])(void) = {
 [SYS_close]   sys_close,
 [SYS_getnumproc] sys_getNumProc, 
 [SYS_getmaxpid] sys_getMaxPid, 
+[SYS_getprocinfo] sys_getProcInfo, 
 };
 
 void

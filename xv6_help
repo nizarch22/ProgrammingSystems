@@ -1,0 +1,8 @@
+files to change to add process:
+proc.c // inner processes implementation
+proc.h // proc struct and others
+syscall.h // SYS_func
+syscall.c // SYS_func -> sys_Func, then extern int sys_Func(void)
+sysproc.c // implement func
+user.h  // func(int a,...)
+defs.h // add proc.c's func prototype 
