@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "processInfo.h"
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -531,4 +532,70 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int 
+getNumProc(void)
+{
+	int count =0;
+	
+	struct proc* p;
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+		if(p->state != UNUSED)
+			count++;
+	release(&ptable.lock);
+	return count;
+}
+
+int 
+getMaxPid(void)
+{
+	int max = -1;
+
+	struct proc* p;
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+		if(p->state != UNUSED)
+		{
+			if(max < p->pid)
+				max=p->pid;
+		}
+	}
+	release(&ptable.lock);
+	return max;
+
+}
+
+int
+getProcInfo(int pid, struct processInfo* pi)
+{
+	int bValid=0;
+	struct proc* p;
+	acquire(&ptable.lock);
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+	{
+		if(p->state != UNUSED&&pid==p->pid)
+		{
+			bValid = 1;
+			break;
+		}
+	}
+	if(!bValid)
+		return -1; // returns -1 if the process with the given pid does not exist
+	pi->state = p->state;
+	pi->ppid = (p->parent)->pid;
+	pi->sz = p->sz;
+
+	// count number of file descriptors
+	pi->nfd = 0;
+	for(int i=0;i<NOFILE;i++)
+	{
+		if(p->ofile[i])
+			pi->nfd++;
+	}
+	//nrswitch remaining?
+	release(&ptable.lock);
+	return 0;
 }

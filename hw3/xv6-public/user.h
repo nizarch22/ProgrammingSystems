@@ -24,6 +24,9 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int getNumProc(void);
+int getMaxPid(void);
+int getProcInfo(int pid, struct processInfo* pi);
 
 // ulib.c
 int stat(const char*, struct stat*);

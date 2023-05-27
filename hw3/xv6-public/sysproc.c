@@ -6,7 +6,7 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
-
+#include "processInfo.h"
 int
 sys_fork(void)
 {
@@ -88,4 +88,22 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+int 
+sys_getNumProc(void)
+{
+	return getNumProc();
+}
+int 
+sys_getMaxPid(void)
+{
+	return getMaxPid();
+}
+
+int
+sys_getProcInfo(int pid, struct processInfo* pi)
+{
+	return getProcInfo(pid, pi);
+	//return -1;
 }

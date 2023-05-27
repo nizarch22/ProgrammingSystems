@@ -1,0 +1,3 @@
+//Added nrswtich, and nfd to proc.h's struct proc
+Added processInfo.h into user.h and proc.c
+made functions getNumProc, getMaxPid, getProcInfo
