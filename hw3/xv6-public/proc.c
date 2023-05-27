@@ -7,7 +7,6 @@
 #include "proc.h"
 #include "spinlock.h"
 #include "processInfo.h"
-
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -535,7 +534,7 @@ procdump(void)
 }
 
 int 
-getNumProc(void)
+getnumproc(void)
 {
 	int count =0;
 	
@@ -549,7 +548,7 @@ getNumProc(void)
 }
 
 int 
-getMaxPid(void)
+getmaxpid(void)
 {
 	int max = -1;
 
@@ -569,7 +568,7 @@ getMaxPid(void)
 }
 
 int
-getProcInfo(int pid, struct processInfo* pi)
+getprocinfo(int pid, struct processInfo* pi)
 {
 	int bValid=0;
 	struct proc* p;

@@ -1,7 +1,6 @@
-#include "processInfo.h"
 struct stat;
 struct rtcdate;
-
+struct processInfo;
 // system calls
 int fork(void);
 int exit(void) __attribute__((noreturn));
