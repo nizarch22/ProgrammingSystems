@@ -93,17 +93,17 @@ sys_uptime(void)
 int 
 sys_getNumProc(void)
 {
-	return getnumproc();
+	return getNumProc();
 }
 int 
 sys_getMaxPid(void)
 {
-	return getmaxpid();
+	return getMaxPid();
 }
 
 int
 sys_getProcInfo(int pid, struct processInfo* pi)
 {
-	return getprocinfo(pid, pi);
+	return getProcInfo(pid, pi);
 	//return -1;
 }

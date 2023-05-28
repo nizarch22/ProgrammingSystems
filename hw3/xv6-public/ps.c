@@ -7,18 +7,24 @@ char* strStates[] = {"UNUSED", "EMBRYO", "SLEEPING", "RUNNABLE", "RUNNING", "ZOM
 int main(void)
 {
 	int num, maxPid;
+	struct processInfo pi;
 	num = getNumProc();
-	maxPid = getMaxPid();	
+	maxPid = getMaxPid();
+	int test = getProcInfo(maxPid, &pi);
+	printf(1,"maxPID - test: %d\n",test);
 
 	printf(1,"Total number of active processes: %d\n",num);
-	printf(1,"Maximum PID: %d",maxPid);
+	printf(1,"Maximum PID: %d\n",maxPid);
 	printf(1,"PID\tSTATE\tPPID\tSZ\tNFS\tNRSWITCH\n");
 	
-	int pid =1;
-	struct processInfo pi;
-	for(int i=0;i<num;i++)
+	int err;
+	for(int pid=0;pid<=maxPid;pid++)
 	{
-		getProcInfo(pid+1,&pi);
+		err = getProcInfo(pid,&pi);
+		if (err==-1){
+			printf(1,"[Error!] such pid: %d - does not exist!\n",pid);
+			continue;
+		}
 		printf(1,"%d\t%s\t%d\t%d\t\%d\t%d\n",pid,strStates[pi.state],pi.ppid,pi.sz,pi.nfd,0);
 	}
 	exit();

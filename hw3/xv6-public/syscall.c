@@ -128,9 +128,9 @@ static int (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_getnumproc] sys_getNumProc, 
-[SYS_getmaxpid] sys_getMaxPid, 
-[SYS_getprocinfo] sys_getProcInfo, 
+[SYS_getNumProc] sys_getNumProc, 
+[SYS_getMaxPid] sys_getMaxPid, 
+[SYS_getProcInfo] sys_getProcInfo, 
 };
 
 void

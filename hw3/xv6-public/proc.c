@@ -534,21 +534,24 @@ procdump(void)
 }
 
 int 
-getnumproc(void)
+getNumProc(void)
 {
-	int count =0;
+	int count = 0;
 	
 	struct proc* p;
 	acquire(&ptable.lock);
 	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
 		if(p->state != UNUSED)
+		{
+			cprintf("state: %d, pid: %d\n",p->state,p->pid);
 			count++;
+		}
 	release(&ptable.lock);
 	return count;
 }
 
 int 
-getmaxpid(void)
+getMaxPid(void)
 {
 	int max = -1;
 
@@ -558,6 +561,7 @@ getmaxpid(void)
 	{
 		if(p->state != UNUSED)
 		{
+			cprintf("2nd: state: %d, pid: %d\n",p->state,p->pid);
 			if(max < p->pid)
 				max=p->pid;
 		}
@@ -568,21 +572,28 @@ getmaxpid(void)
 }
 
 int
-getprocinfo(int pid, struct processInfo* pi)
+getProcInfo(int pid, struct processInfo* pi)
 {
-	int bValid=0;
+	int bValid = 0;
 	struct proc* p;
 	acquire(&ptable.lock);
 	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
 	{
-		if(p->state != UNUSED&&pid==p->pid)
+		if(p->state != UNUSED)
+			cprintf("3rd: state: %d, pid: %d-- current pid: %d\n",p->state,p->pid, pid);
+
+
+		if(p->state != UNUSED && pid==p->pid)
 		{
 			bValid = 1;
 			break;
 		}
 	}
-	if(!bValid)
+	if(bValid==0)
+	{
+		release(&ptable.lock);
 		return -1; // returns -1 if the process with the given pid does not exist
+	}
 	pi->state = p->state;
 	pi->ppid = (p->parent)->pid;
 	pi->sz = p->sz;
