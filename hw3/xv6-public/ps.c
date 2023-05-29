@@ -22,10 +22,11 @@ int main(void)
 	{
 		err = getProcInfo(pid,&pi);
 		if (err==-1){
-			printf(1,"[Error!] such pid: %d - does not exist!\n",pid);
+			//printf(1,"[Error!] such pid: %d - does not exist!\n",pid);
 			continue;
 		}
-		printf(1,"%d\t%s\t%d\t%d\t\%d\t%d\n",pid,strStates[pi.state],pi.ppid,pi.sz,pi.nfd,0);
+		printf(1,"%d\t%d\t%d\t%d\t\%d\t%d\n",pid,pi.state,pi.ppid,pi.sz,pi.nfd,pi.nrswitch);
+		//printf(1,"%d\n%d\n%d\n%d\n\%d\n%d\n------\n",pid,pi.state,pi.ppid,pi.sz,pi.nfd,pi.nrswitch);
 	}
 	exit();
 }

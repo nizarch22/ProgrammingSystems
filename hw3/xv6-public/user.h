@@ -25,7 +25,7 @@ int sleep(int);
 int uptime(void);
 int getNumProc(void);
 int getMaxPid(void);
-int getProcInfo(int pid, struct processInfo* pi);
+int getProcInfo(int,struct processInfo*);
 
 // ulib.c
 int stat(const char*, struct stat*);

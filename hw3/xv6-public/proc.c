@@ -88,6 +88,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->nrswitch=0;
 
   release(&ptable.lock);
 
@@ -339,6 +340,7 @@ scheduler(void)
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+      p->nrswitch++; // user-made modification
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
@@ -543,7 +545,6 @@ getNumProc(void)
 	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
 		if(p->state != UNUSED)
 		{
-			cprintf("state: %d, pid: %d\n",p->state,p->pid);
 			count++;
 		}
 	release(&ptable.lock);
@@ -561,7 +562,6 @@ getMaxPid(void)
 	{
 		if(p->state != UNUSED)
 		{
-			cprintf("2nd: state: %d, pid: %d\n",p->state,p->pid);
 			if(max < p->pid)
 				max=p->pid;
 		}
@@ -579,10 +579,6 @@ getProcInfo(int pid, struct processInfo* pi)
 	acquire(&ptable.lock);
 	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
 	{
-		if(p->state != UNUSED)
-			cprintf("3rd: state: %d, pid: %d-- current pid: %d\n",p->state,p->pid, pid);
-
-
 		if(p->state != UNUSED && pid==p->pid)
 		{
 			bValid = 1;
@@ -605,7 +601,7 @@ getProcInfo(int pid, struct processInfo* pi)
 		if(p->ofile[i])
 			pi->nfd++;
 	}
-	//nrswitch remaining?
+	pi->nrswitch = p->nrswitch;
 	release(&ptable.lock);
 	return 0;
 }

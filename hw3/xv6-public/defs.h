@@ -120,9 +120,10 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+// user-made in proc.c
 int		getNumProc(void);
 int		getMaxPid(void);
-int		getProcInfo(int pid, struct processInfo* pi);
+int		getProcInfo(int, struct processInfo*);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
