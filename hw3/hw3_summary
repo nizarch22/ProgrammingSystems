@@ -1,0 +1,61 @@
+//Added nrswtich, and nfd to proc.h's struct proc
+//Added processInfo.h into user.h and proc.c
+//made functions getNumProc, getMaxPid, getProcInfo
+
+changed the following files:syscall.h, syscall.c, usys.S, sysproc.c, proc.h, proc.c, defs.h, user.h, Makefile, ps.c, processInfo.h:
+syscall.h:
+
+#define SYS_getNumProc 22
+#define SYS_getMaxPid 23
+#define SYS_getProcInfo 24
+
+syscall.c:
+[SYS_getNumProc] sys_getNumProc, 
+[SYS_getMaxPid] sys_getMaxPid, 
+[SYS_getProcInfo] sys_getProcInfo, 
+
+extern int sys_getNumProc(void);
+extern int sys_getMaxPid(void);
+extern int sys_getProcInfo(void);
+
+usys.S:
+SYSCALL(getNumProc)
+SYSCALL(getMaxPid)
+SYSCALL(getProcInfo)
+
+proc.h:
+
+Added int nrswitch to struct proc.
+proc.c:
+defined the following functions to be used in sysproc's functions:
+
+int		getNumProc(void);
+int		getMaxPid(void);
+int		getProcInfo(int, struct processInfo*);
+
+sysproc.c:
+defined the following functions:
+int sys_getNumProc(void);
+int sys_getMaxPid(void);
+int sys_getProcInfo(void);
+
+
+defs.h:
+// user-made in proc.c
+int		getNumProc(void);
+int		getMaxPid(void);
+int		getProcInfo(int, struct processInfo*);
+
+user.h:
+
+int getNumProc(void);
+int getMaxPid(void);
+int getProcInfo(int,struct processInfo*);
+
+
+Makefile:
+Added UPROG=\ ... _ps\ ...
+EXTRAS=\ ... ps.c ...
+
+ps.c:
+wrote the printing code that uses the systemcalls we defined in sysproc.c to be ran in xv6 terminal.
