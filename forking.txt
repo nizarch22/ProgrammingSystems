@@ -1,0 +1,5 @@
+About forking:
+1.Parent will run first. It will keep running until it's done, or it reaches sleep.
+2.Child runs. Runs until it finishes or runs into sleep.
+3. Parent will run again - until reaches end or sleep. Then child will run. And so on and so forth.
+
