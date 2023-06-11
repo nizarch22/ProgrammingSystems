@@ -1,8 +1,0 @@
-1. proc.h added P member to proc struct.
-- added yieldTicks as member of proc.
-2. proc.c: added int setprio(int p) function. Returns -1 if p is not valid.
-- intialized P=0 and yieldTicks=0 in procalloc.
-3. syscall.c syscall.h and usys.S - added setprio and getprio system calls.
-4. defs.h: added definition for setprio process located in proc.c
-5. sysproc.c: defined sys_getprio and sys_setprio.
-6. user.h: defined systemcalls.
