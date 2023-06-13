@@ -13,9 +13,9 @@ int main(void)
 {
    0:	8d 4c 24 04          	lea    0x4(%esp),%ecx
    4:	83 e4 f0             	and    $0xfffffff0,%esp
-	int start, end, runtime; // variables for tracking clock ticks of CPU BOUND function
 	int priority; // priority variables for the children
 
+	// variables that store children processes' priorities and runtimes, and their average.
 	int pPriority[NUM_CHILDREN];
 	int pRuntime[NUM_CHILDREN];
 	int avg[8]={0};
@@ -33,11 +33,14 @@ int main(void)
   20:	83 c0 04             	add    $0x4,%eax
   23:	83 f8 20             	cmp    $0x20,%eax
   26:	72 f1                	jb     19 <main+0x19>
+	
+	// piping variable for children to write results to parent
 	int fds[2];
 	pipe(fds);
   28:	83 ec 0c             	sub    $0xc,%esp
   2b:	8d 85 d0 fe ff ff    	lea    -0x130(%ebp),%eax
 	
+	// starting the sampling of all children
 	for(int i=0;i<NUM_CHILDREN;i++)
   31:	31 db                	xor    %ebx,%ebx
 	pipe(fds);
@@ -50,7 +53,7 @@ int main(void)
 			exit();
 			return -1;
 		}
-		if(f!=0){} // do nothing
+		if(f!=0){} // parent will do nothing during loop
 		if(f==0)
   40:	74 28                	je     6a <main+0x6a>
 	for(int i=0;i<NUM_CHILDREN;i++)
@@ -71,6 +74,7 @@ int main(void)
 			exit();
   65:	e8 19 06 00 00       	call   683 <exit>
 		{	
+			// set priority
 			priority = i%8;
 			setprio(priority);
   6a:	83 ec 0c             	sub    $0xc,%esp
@@ -82,6 +86,8 @@ int main(void)
   71:	89 9d 78 ff ff ff    	mov    %ebx,-0x88(%ebp)
 			setprio(priority);
   77:	e8 af 06 00 00       	call   72b <setprio>
+			
+			// calculate runtime of CPU BOUND function 'foo'
 			start = uptime();
   7c:	e8 9a 06 00 00       	call   71b <uptime>
 			foo(TEST_PARAM);
@@ -96,7 +102,8 @@ int main(void)
 			runtime = end -start;
   97:	29 d8                	sub    %ebx,%eax
   99:	89 85 f8 fe ff ff    	mov    %eax,-0x108(%ebp)
-
+			
+			// write results to parent
 			write(fds[1],&priority,1);
   9f:	50                   	push   %eax
   a0:	8d 85 78 ff ff ff    	lea    -0x88(%ebp),%eax
@@ -111,18 +118,19 @@ int main(void)
   bf:	50                   	push   %eax
   c0:	ff b5 d4 fe ff ff    	push   -0x12c(%ebp)
   c6:	e8 d8 05 00 00       	call   6a3 <write>
-			//printf(1,"runtime:%d prio:%d\n",runtime,priority); // debug
 			exit();
   cb:	e8 b3 05 00 00       	call   683 <exit>
   d0:	31 db                	xor    %ebx,%ebx
   d2:	8d b6 00 00 00 00    	lea    0x0(%esi),%esi
-
-	}
+	
+	// running all children and storing their results
 	for(int i=0;i<NUM_CHILDREN;i++)
 	{
-		//piping
-		wait();
+		// let 1 child run
+		wait(); 
   d8:	e8 ae 05 00 00       	call   68b <wait>
+
+		// parent receives the results from the children
 		read(fds[0],&pPriority[i],1);
   dd:	8d 85 f8 fe ff ff    	lea    -0x108(%ebp),%eax
   e3:	83 ec 04             	sub    $0x4,%esp
@@ -147,7 +155,8 @@ int main(void)
  115:	81 fb 80 00 00 00    	cmp    $0x80,%ebx
  11b:	75 bb                	jne    d8 <main+0xd8>
 	}
-	int num = NUM_CHILDREN/8;
+
+	// computing the sum of all runtimes according to their priority
 	for(int i=0;i<NUM_CHILDREN;i++)
  11d:	31 c0                	xor    %eax,%eax
  11f:	90                   	nop
@@ -162,8 +171,11 @@ int main(void)
 	for(int i=0;i<NUM_CHILDREN;i++)
  138:	83 f8 20             	cmp    $0x20,%eax
  13b:	75 e3                	jne    120 <main+0x120>
-	}
 
+	// number of samples of each priority
+	int num = NUM_CHILDREN/8;
+	
+	// computing the average of each priority's runtime, and printing it.
 	for(int i=0;i<8;i++)
  13d:	31 db                	xor    %ebx,%ebx
  13f:	90                   	nop

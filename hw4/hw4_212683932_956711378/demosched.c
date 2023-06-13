@@ -41,7 +41,6 @@ int main(void)
 	int fds[2];
 	pipe(fds);
 	
-	// starting the sampling of all children
 	for(int i=0;i<NUM_CHILDREN;i++)
 	{
 		f = fork();
