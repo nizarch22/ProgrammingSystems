@@ -76,15 +76,90 @@ void loadEntry(int dirIndex)
 	loadImageData(&entry, dirIndex,DIR_LEN);
 }
 
+unsigned int reverseBits(unsigned int num, unsigned int n)
+{
+    unsigned int NO_OF_BITS = n;
+    unsigned int reverse_num = 0;
+    int i;
+    for (i = 0; i < NO_OF_BITS; i++) {
+        if ((num & (1 << i)))
+            reverse_num |= 1 << ((NO_OF_BITS - 1) - i);
+    }
+    return reverse_num;
+}
+
+void getEntryDateTime(char* date, char* time)
+{
+	__le16 d,t;
+	unsigned int day, month, year;
+	unsigned int hour, minute;
+
+	d = entry.cdate;
+	t = entry.ctime;
+	
+	__le16 mask = d;
+	mask <<=11;
+	mask >>=11;
+
+	day = mask;
+	day = reverseBits(day,5);
+
+	mask = d;
+	mask >>=5;
+	mask <<=12;
+	mask >>=12;
+
+	month = mask;
+	month = reverseBits(month,4);
+
+	mask = d;
+	mask >>=9;
+
+	year = mask;
+	//year = reverseBits(year,7);
+	//printf("year:%d\n",year);
+	
+	// starting from 1980
+	year+=1980;
+	
+	mask = t;
+	mask >>=5;
+	mask <<= 10;
+	mask >>=10;
+	minute = mask;
+	//minute = reverseBits(minute, 6);
+
+	mask = t;
+	mask >>=11;
+	hour = mask;
+	//hour = reverseBits(hour,5);
+	
+	char ampm[3]={0};
+	if(hour>=12)
+	{
+		strcpy(ampm,"PM");
+		if(hour!=12)
+			hour-=12;
+	}
+	else
+	{
+		strcpy(ampm,"AM");
+	}
+
+	sprintf(date,"%02d/%02d/%d",day,month,year);
+	sprintf(time,"%02d:%02d ",hour,minute);
+	strcat(time,ampm);
+	//printf("time:%s\ndate:%s\n",time,date);
+}
+
 int findFileIndex(unsigned int index, unsigned int n, char* targetFile)
 {
-
 	char buff[11];
 	format(targetFile, buff);
 	for(int i =0;i<n;i++)
 	{
 		loadEntry(index);
-		if(entry.name[0]==0x00)
+		if(entry.name[0]==0x00||entry.name[0]==0xE5)
 			break;
 		if(isEqualStr(entry.name, buff))
 			return i;
@@ -94,18 +169,33 @@ int findFileIndex(unsigned int index, unsigned int n, char* targetFile)
 	return -1;
 }
 
+
+
 // Print all directories/files in root.
 void printRootDir(unsigned int index, unsigned int n)
 {
-	// 
-
-	printf("NAME SIZE\n");
+	const char dir[] = "<DIR>";
+	char date[50];
+	char time[50];
 	for(unsigned int i =0;i<n;i++)
 	{
 		loadEntry(index);
 		if(entry.name[0]==0x00)
 			break;
-		printf("%s-%d\n", entry.name,entry.size);
+		if(entry.name[0]==0xE5)
+			continue;
+		getEntryDateTime(date,time);
+		printf("%s\t%s\t",date,time);
+		if(entry.attr == ATTR_DIR)
+		{
+			printf("%s\t\t",dir);
+		}
+		else
+		{
+			printf("\t\t%d\t",entry.size);
+		}
+
+		printf("%s\n", entry.name);
 
 		// Each entry is sized at 32 bytes. Therefore our index should increment exactly that much.
 		index+=DIR_LEN;  
@@ -121,7 +211,9 @@ int checkErrors(int argc, char* argv[])
 		return -1;
 	}
 	
-	if(strcmp(argv[2],"dir")!=0 && strcmp(argv[2],"cp")!=0)
+	int bDir = strcmp(argv[2],"dir")==0;
+	int bCp = strcmp(argv[2],"cp")==0;
+	if(!bDir && !bCp)
 	{
 		printf("[ERROR] Invalid command!\n");
 		return -1;
@@ -229,7 +321,6 @@ int main(int argc, char* argv[])
 		printRootDir(rootSector, numRootEntries);
 	}
 
-
 	// Copy process
 	if(strcmp(command,"cp") != 0)
 	{
@@ -250,6 +341,7 @@ int main(int argc, char* argv[])
 
 	// loading the file entry
 	loadEntry(fileEntryLoc);
+
 	// creating a sufficient data holder for the file 
 	unsigned int clusterSize = getClusterSize();
 	unsigned int fileClusterCount = (entry.size+clusterSize-1)/clusterSize;
