@@ -6,19 +6,58 @@
 
 #define BPB_LEN 62
 #define DIR_LEN 32
+#define DIR_ENTRY_YEAR_START 1980
+
+/* *** Description ***
+ * Initially we load the BPB (loadBoot()), but only up until BPB_LEN (62 Bytes) as after
+ * which, the sector will pose little use. 
+ * BPB is used for its many essential properties.
+ * 
+ * 'DIR' command:
+ *
+ * We would like to access the root directory entries - as that is where we can find 
+ * all the directories' information. We do this using BPB (as specified by the Microsoft
+ * FAT12 Specification sheet).
+ * We access the entries one after the other from the root sector, using the entry 
+ * size (DIR_LEN - 32 bytes) for indexing (BPB property).
+ * 
+ *
+ * 'CP' command:
+ *
+ * First, in order to copy the data of a file name, we need the entry of its root directory,
+ * as it contains the first cluste of the file - which will lead us to the next
+ * cluster (getFatEntry()), and the next, and so on until the end of file. 
+ * To this end, the index of the root directory entry is acquired (findFileIndex()) using the 
+ * file name. To do this, we chose to turn the file name into a FAT appropriate name 
+ * (FatNameFormat()).
+ *
+ * Second, we need the data sector, as that is where all the clusters are located. 
+ * We use the BPB propreties once again to acquire it.
+ *
+ * Thirdly, we allocate a 'data' buffer with an appropriate size to store all the clusters
+ * of the file. Then, we proceed to load the file cluster by cluster (loadFileData()) into
+ * the 'data' buffer.
+ *
+ *
+ * Finally, we write the 'data' buffer into the new linux file.
+ *
+ *
+ */
+
 
 // global variables
-struct fat_boot_sector bootSector;
 struct msdos_dir_entry entry;
-
-// 'constant' global variables
+// 'non-changing' global variables --
 FILE* imgFP;
+struct fat_boot_sector bootSector;
 
 unsigned int getClusterSize()
 {
 	return SECTOR_SIZE * bootSector.sec_per_clus;
 }
 
+// gets the fat entry of the cluster. This gives us the next cluster in the file
+// or end-of-file. Otherwise, we get an exception.
 unsigned int getFatEntry(unsigned int clusterIndex)
 {
 	__le16 fatEntry;
@@ -54,113 +93,115 @@ unsigned int getFatEntry(unsigned int clusterIndex)
 	return fatEntry;
 }
 
-
+// load 'imgFP' data into 'buff'.
+// the data from the disk image (offset to offset+n bytes) is saved
+// into 'buff'.
 void loadImageData(void* buff, int offset, unsigned int n)
 {
-	// 
+	// offset from the beginning of the file.
 	fseek(imgFP, offset, SEEK_SET);
-	//
+	// n bytes are stored to 'buff'.
 	fread(buff, n, 1,imgFP);
 }
 
-// Load the first 62 bytes of the boot (up until BS_FilSysType) into bootSector (struct fat_boot_sector)
+// Load the first 62 bytes (i.e. BPB_LEN) of the boot (up until BS_FilSysType) 
+// into bootSector (struct fat_boot_sector)
 // where bootSector is a global variable.
 void loadBoot()
 {
 	loadImageData(&bootSector,0,BPB_LEN);
 }
 
-
 void loadEntry(int dirIndex)
 {
 	loadImageData(&entry, dirIndex,DIR_LEN);
 }
 
-unsigned int reverseBits(unsigned int num, unsigned int n)
-{
-    unsigned int NO_OF_BITS = n;
-    unsigned int reverse_num = 0;
-    int i;
-    for (i = 0; i < NO_OF_BITS; i++) {
-        if ((num & (1 << i)))
-            reverse_num |= 1 << ((NO_OF_BITS - 1) - i);
-    }
-    return reverse_num;
-}
-
+// Compute the date and time, and create the date and time strings 
+// with an acceptable format.
 void getEntryDateTime(char* date, char* time)
 {
 	__le16 d,t;
-	unsigned int day, month, year;
-	unsigned int hour, minute;
+	__le16 day, month, year;
+	__le16 hour, minute;
 
 	d = entry.cdate;
 	t = entry.ctime;
 	
-	__le16 mask = d;
-	mask <<=11;
-	mask >>=11;
-
-	day = mask;
-	day = reverseBits(day,5);
-
-	mask = d;
-	mask >>=5;
-	mask <<=12;
-	mask >>=12;
-
-	month = mask;
-	month = reverseBits(month,4);
-
-	mask = d;
-	mask >>=9;
-
-	year = mask;
-	//year = reverseBits(year,7);
-	//printf("year:%d\n",year);
+	// Calculating date.
 	
+	// day date bits: 0:4.
+	// We isolate these bits from the rest (5-15).
+	// Irrelevant left-most bits: 15-5+1 = 11.
+	// Irrelevant right-most bits: none
+	day = d;
+	day <<=11;
+	day >>=11;
+
+	// month date bits: 5:8.
+	// Irrelevant left-most bits: 15-9+1 = 7.
+	// Irrelevant right-most bits: 4-0+1=5
+	month = d;
+	month <<=7;
+	month >>=7;
+	month >>=5;
+
+	// month date bits: 9:15.
+	// Irrelevant left-most bits: none.
+	// Irrelevant right-most bits: 8-0+1=9 
+	year = d;
+	year >>=9;
+
 	// starting from 1980
-	year+=1980;
+	year+=DIR_ENTRY_YEAR_START;
 	
-	mask = t;
-	mask >>=5;
-	mask <<= 10;
-	mask >>=10;
-	minute = mask;
-	//minute = reverseBits(minute, 6);
+	// Calculating time.
+	
+	// minute date bits: 5:10.
+	// Irrelevant left-most bits: 5.
+	// Irrelevant right-most bits: 5 
+	
+	minute = t;
+	minute <<=5;
+	minute >>= 5;
+	minute >>=5;
 
-	mask = t;
-	mask >>=11;
-	hour = mask;
-	//hour = reverseBits(hour,5);
-	
-	char ampm[3]={0};
+	// hour date bits: 11:15.
+	// Irrelevant left-most bits: none.
+	// Irrelevant right-most bits: 10-0+1=11 
+	hour = t;
+	hour >>=11;
+
+	if(entry.start!=0)
+		hour+=3;
+	char ampm[3]="AM";
 	if(hour>=12)
 	{
 		strcpy(ampm,"PM");
 		if(hour!=12)
 			hour-=12;
 	}
-	else
-	{
-		strcpy(ampm,"AM");
-	}
-
-	sprintf(date,"%02d/%02d/%d",day,month,year);
-	sprintf(time,"%02d:%02d ",hour,minute);
+	
+	// formatting date and time into acceptable representations.
+	sprintf(date,"%02d/%02d/%d",day, month, year);
+	sprintf(time,"%02d:%02d ",hour, minute);
 	strcat(time,ampm);
-	//printf("time:%s\ndate:%s\n",time,date);
 }
 
+// find the index of the root directory entry which has the name contained by 'targetFile'.
+// This is in order to get the first cluster contained in the entry.
 int findFileIndex(unsigned int index, unsigned int n, char* targetFile)
 {
-	char buff[11];
-	format(targetFile, buff);
+	char buff[12];
+	FatNameFormat(targetFile, buff);
+	buff[11]=0;
 	for(int i =0;i<n;i++)
 	{
 		loadEntry(index);
-		if(entry.name[0]==0x00||entry.name[0]==0xE5)
+		if(entry.name[0]==0x00)
 			break;
+		if(entry.name[0]==0xE5)
+			continue;
 		if(isEqualStr(entry.name, buff))
 			return i;
 		// Each entry is sized at 32 bytes. Therefore our index should increment exactly that much.
@@ -169,14 +210,12 @@ int findFileIndex(unsigned int index, unsigned int n, char* targetFile)
 	return -1;
 }
 
-
-
 // Print all directories/files in root.
 void printRootDir(unsigned int index, unsigned int n)
 {
 	const char dir[] = "<DIR>";
-	char date[50];
-	char time[50];
+	char date[12];
+	char time[9];
 	for(unsigned int i =0;i<n;i++)
 	{
 		loadEntry(index);
@@ -192,7 +231,7 @@ void printRootDir(unsigned int index, unsigned int n)
 		}
 		else
 		{
-			printf("\t\t%d\t",entry.size);
+			printf("\t%d\t",entry.size);
 		}
 
 		printf("%s\n", entry.name);
@@ -202,7 +241,7 @@ void printRootDir(unsigned int index, unsigned int n)
 	}
 }
 
-// Checking input arguments' correctness
+// Checking input command syntax's correctness.
 int checkErrors(int argc, char* argv[])
 {
 	if(argc < 3)
@@ -219,7 +258,9 @@ int checkErrors(int argc, char* argv[])
 		return -1;
 	}
 }
-void format(char* buff, char* target)
+
+// converting 'buff' to the name that fits the FAT naming convention.
+void FatNameFormat(char* buff, char* target)
 {
 	int index = 7;
 	int flag = 0;
@@ -242,6 +283,8 @@ void format(char* buff, char* target)
 	}
 
 	flag = 0;
+	if(buff[index]==0)
+		flag=1;
 	for(int i=8;i<11;i++)
 	{
 		index++;
@@ -275,6 +318,62 @@ int isEqualStr(char* a, char* b)
 	return 1;
 }
 
+unsigned int getRootSector()
+{
+	unsigned int rootSectorIndex = bootSector.reserved + (bootSector.fats*bootSector.fat_length);
+	unsigned int rootSector = rootSectorIndex*SECTOR_SIZE;
+
+	return rootSector;
+}
+unsigned int getFileSize()
+{
+	unsigned int clusterSize = getClusterSize();
+	unsigned int fileClusterCount = (entry.size+clusterSize-1)/clusterSize;
+	unsigned int dataSize = fileClusterCount*clusterSize;
+
+	return dataSize;
+}
+unsigned int getDataSector()
+{
+	// calculating root sector -- where directory entries are located
+	unsigned int rootSector = getRootSector();
+	// number of possible entries in the root sector 
+	unsigned int numRootEntries = bootSector.entries;
+
+	unsigned int bytesPerSec = bootSector.sector_size;
+	unsigned int rootSectorNum = (numRootEntries*32+bytesPerSec-1)/bytesPerSec;
+	unsigned int dataSector = rootSector + rootSectorNum*SECTOR_SIZE;
+
+	return dataSector;
+}
+
+// load all file data: following the cluster after the next, we load the 'data' 
+// buffer cluster by cluster, until we reach end-of-file.
+void loadFileData(char* data)
+{
+
+	// Calculating location of the data sector -- where clusters are located
+	unsigned int dataSector = getDataSector();
+	// cluster handling - finding its location on the disk
+	unsigned int clusterSize = getClusterSize();
+	unsigned int currentCluster = entry.start;
+	unsigned int clusterLocation = dataSector+clusterSize*(currentCluster-0x2);
+
+	// loading clusters
+	int dataIndex = 0;
+	char* p = data;
+	while(currentCluster!=EOF_FAT12)
+	{
+		// load current cluster data
+		loadImageData(p, clusterLocation, clusterSize);
+
+		// get the next cluster and its location
+		currentCluster = getFatEntry(currentCluster);
+		clusterLocation = dataSector+clusterSize*(currentCluster-0x2);
+	
+		p+=clusterSize; // next cluster to be written into 'data'
+	}
+}
 
 int main(int argc, char* argv[])
 {
@@ -310,8 +409,7 @@ int main(int argc, char* argv[])
 	}
 
 	// calculating root sector -- where directory entries are located
-	unsigned int rootSectorIndex = bootSector.reserved + (bootSector.fats*bootSector.fat_length);
-	unsigned int rootSector = rootSectorIndex*SECTOR_SIZE;
+	unsigned int rootSector = getRootSector();
 	// number of possible entries in the root sector 
 	unsigned int numRootEntries = bootSector.entries;
 
@@ -336,42 +434,22 @@ int main(int argc, char* argv[])
 		exit(-1);
 	}
 
-	// file location on disk
-	int fileEntryLoc = rootSector + fileIndex * DIR_LEN;
-
+	
 	// loading the file entry
+	int fileEntryLoc = rootSector + fileIndex * DIR_LEN; // file location on disk
 	loadEntry(fileEntryLoc);
 
+
 	// creating a sufficient data holder for the file 
-	unsigned int clusterSize = getClusterSize();
-	unsigned int fileClusterCount = (entry.size+clusterSize-1)/clusterSize;
-	unsigned int dataSize = fileClusterCount*clusterSize;
+	unsigned int dataSize = getFileSize();
 	char* data = (char*)malloc(dataSize);
 
-	// Calculating location of the data sector -- where clusters are located
-	unsigned int bytesPerSec = bootSector.sector_size;
-	unsigned int rootSectorNum = (numRootEntries*32+bytesPerSec-1)/bytesPerSec;
-	unsigned int dataSector = rootSector + rootSectorNum*SECTOR_SIZE;
-
-	// cluster handling - finding its location on the disk
-	unsigned int currentCluster = entry.start;
-	unsigned int clusterLocation = dataSector+clusterSize*(currentCluster-0x2);
-
 	// data loading - copying file into the 'data' buffer
-	int dataIndex = 0;
-	char* p = data;
-	while(currentCluster!=EOF_FAT12)
-	{
-		// load current cluster data
-		loadImageData(p, clusterLocation, clusterSize);
+	loadFileData(data);
 
-		// get the next cluster and its location
-		currentCluster = getFatEntry(currentCluster);
-		clusterLocation = dataSector+clusterSize*(currentCluster-0x2);
-	
-		p+=clusterSize; // next cluster to be written into 'data'
-	}
+	// closing image file - we are done copying. 
 	fclose(imgFP);
+
 	// write data into linux file
 	fp = fopen(filePath, "wb");
 	if(fp==NULL)

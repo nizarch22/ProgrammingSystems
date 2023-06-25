@@ -1,4 +1,2 @@
 Made msdos_fs.h structures packed - allocated one next to the other for easy memory loading.
 Modified a couple of __u8[2] into __le16 for ease of use.
-
-- Need to include some other flags for DIR. Right now it displays 'UGS', strange value.
